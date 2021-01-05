@@ -34,7 +34,7 @@ drawGraph();
 // determine order of path starting at 0,0
 const start = new Node(1, [0,0]);
 function buildPath(start) {
-    // i denotes node order
+    // i denotes node order and will be the node value
     let i = 1;
 
     // keep track of visited squares
@@ -45,17 +45,20 @@ function buildPath(start) {
     const stack = new Stack();
     stack.push(start);
 
-
+    // start moving randomly and backtracking upon hitting a visited square
     while (!stack.isEmpty()) {
         let curNode = stack.peek();
         visited[curNode.coord] = true;
         let dir = chooseDir(curNode, visited);
 
+        // if chooseDir returns null we've hit a deadend:
+        // pop the stack and see if there's a free square adjacent now
         if (!dir) {
             stack.pop();
             continue;
         }
 
+        // otherwise we can now move forward
         let nextNode = new Node(++i, dir);
         stack.push(nextNode);
         curNode.neighbors.push(nextNode);
@@ -64,6 +67,7 @@ function buildPath(start) {
     return start;
 }
 
+// helper function for buildPath
 function chooseDir(node, visited) {
     let x = node.coord[0];
     let y = node.coord[1];
@@ -86,6 +90,7 @@ function chooseDir(node, visited) {
 
 let path = buildPath(start);
 
+// this function's for debugging purposes
 function drawNodeOrder(path) {
     let { val, coord, neighbors } = path;
 
@@ -102,6 +107,7 @@ function drawNodeOrder(path) {
     }
 }
 
+// helper function for determining two node's directional relation
 function whichDir(node1, node2) {
     const coord1 = node1.coord;
     const coord2 = node2.coord;
@@ -116,7 +122,7 @@ function whichDir(node1, node2) {
 }
 
 
-function eraseBorders(path, vertices = []) {
+function eraseBorders(path, lines = []) {
     let { coord, neighbors } = path;
 
     if (neighbors.length === 0) return;
@@ -124,20 +130,28 @@ function eraseBorders(path, vertices = []) {
     for (let neighbor of neighbors) {
         // determine direction of neighbor, initialize pt1 and pt2 of edge
         let dir = whichDir(path, neighbor);
-        let vertexStart, vertexEnd, line;
+        let waypoints, pt1, pt2, line;
         // erase the correct edge
         switch (dir) {
             case 'right':
-                vertexStart = { x: coord[0]*boxWidth+boxWidth, y: coord[1]*boxHeight+1 };
-                vertexEnd = { x: coord[0]*boxWidth+boxWidth, y: coord[1]*boxHeight+boxHeight-1 };
-                line = { vertexStart, vertexEnd, dir: "right" };
-                vertices.push(line);
+                ctx.beginPath();
+                ctx.moveTo(coord[0]*boxWidth+boxWidth, coord[1]*boxHeight+1);
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 10;
+                ctx.lineTo(coord[0]*boxWidth+boxWidth, coord[1]*boxHeight+boxHeight-1);
+                ctx.stroke();
                 break;
             case 'down': 
-                vertexStart = { x: coord[0]*boxWidth+1, y: coord[1]*boxHeight+boxHeight };
-                vertexEnd = { x: coord[0]*boxWidth+boxWidth-1, y: coord[1]*boxHeight+boxHeight };
-                line = { vertexStart, vertexEnd, dir: "down" };
-                vertices.push(line);
+                ctx.beginPath();
+                ctx.moveTo(coord[0]*boxWidth+1, coord[1]*boxHeight+boxHeight);
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 10;
+                ctx.lineTo(coord[0]*boxWidth+boxWidth-1, coord[1]*boxHeight+boxHeight-1);
+                ctx.stroke();
+                // lineStart = { x: coord[0]*boxWidth+1, y: coord[1]*boxHeight+boxHeight-1};
+                // lineEnd = { x: coord[0]*boxWidth+boxWidth-1, y: coord[1]*boxHeight+boxHeight-1 };
+                // line = { lineStart, lineEnd, dir: "right" };
+                // lines.push(line);
                 break;
             case 'left':
                 ctx.beginPath();
@@ -158,48 +172,84 @@ function eraseBorders(path, vertices = []) {
             default:
                 break;
         }
-        eraseBorders(neighbor, vertices);
+        eraseBorders(neighbor, lines);
     }
 }
 
+const lines = [];
+let timestamp;
+eraseBorders(path, lines);
+
+ctx.beginPath();
+ctx.moveTo(300, 300);
+ctx.strokeStyle = "red";
+ctx.lineWidth = 10;
+ctx.lineTo(400, 300);
+ctx.stroke();
+
+
+
+
 function calcWaypoints(pt1, pt2) {
-    const waypoints = [];
-    let dx = pt2.x- pt1.x;
-    let dy = pt2.y - pt1.y;
+    let waypoints = [],
+          dx = pt2.x- pt1.x,
+          dy = pt2.y - pt1.y;
+
+    // break up the line into 100 point objects and put'em in an array
     for (let j = 0; j < 100; j++) {
         let x = pt1.x+dx*j/100;
         let y = pt1.y+dy*j/100;
         waypoints.push({x: x, y: y})
     }
+    // connect each point and the one ahead of it together to make many tiny lines
+    // nothing to connect the last point so it maps as undefined so we pop it at the end
+    waypoints = waypoints.map((point, i) => {
+        if (i === waypoints.length-1) return;
+        const line = { pt1: point, pt2: waypoints[i+1] };
+        return line;
+    })
+    waypoints.pop();
     return waypoints;
 }
 
-const vertices = [];
-eraseBorders(path, vertices);
-console.log(vertices);
-let dy = 0.5;
-let dx = 0.5;
-let timestamp;
+let fps = 10;
 
-function animateErase() {
-    for (let vertex of vertices) {
-        let { vertexStart, vertexEnd } = vertex;
-        console.log(vertex.dir);
-        switch(vertex.dir) {
-            case "right": 
-                ctx.clearRect(vertexStart.x-1, vertexStart.y-1, 2, 2)
-                vertexStart.y += dy;
-                break;
-            case "down":
-                ctx.clearRect(vertexStart.x-1, vertexStart.y-1, 2, 2)
-                vertexStart.x += dx;
-                break;
-            default: 
-                break;
-        }
-    }
-    timestamp = requestAnimationFrame(animateErase);
-    if (vertices[0].vertexStart.y >= vertices[0].vertexEnd.y) cancelAnimationFrame(timestamp);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// function animateErase() {
+//     for (let vertex of vertices) {
+//         let { vertexStart, vertexEnd } = vertex;
+//         console.log(vertex.dir);
+//         switch(vertex.dir) {
+//             case "right": 
+//                 ctx.clearRect(vertexStart.x-1, vertexStart.y-1, 2, 2)
+//                 vertexStart.y += dy;
+//                 break;
+//             case "down":
+//                 ctx.clearRect(vertexStart.x-1, vertexStart.y-1, 2, 2)
+//                 vertexStart.x += dx;
+//                 break;
+//             default: 
+//                 break;
+//         }
+//     }
+    // timestamp = requestAnimationFrame(animateErase);
+    // if (vertices[0].vertexStart.y >= vertices[0].vertexEnd.y) cancelAnimationFrame(timestamp);
     
     // for (let vertex of vertices) {
     //     let { vertexStart, vertexEnd } = vertex;
@@ -211,9 +261,8 @@ function animateErase() {
 
     // timestamp = requestAnimationFrame(animateErase);
     // if (vertices[0].vertexStart.y >= vertices[0].vertexEnd.y) cancelAnimationFrame(timestamp);
-}
+// }
 
-animateErase(vertices);
+// animateErase(vertices);
 
-
-
+ 
